@@ -6,7 +6,7 @@ import {
   Upload,
   Library,
   Users,
-  ChartNoAxesCombined,
+  //ChartNoAxesCombined,
   Wallet,
   Settings2,
   ArrowUpRight,
@@ -38,7 +38,7 @@ const navItems = [
   ['uploads', 'Uploads', Upload],
   ['library', 'Question library', Library],
   ['students', 'Students', Users],
-  ['insights', 'Insights', ChartNoAxesCombined],
+  //['insights', 'Insights', ChartNoAxesCombined],
   ['payments', 'Earnings', Wallet],
 ];
 const titles = {
@@ -47,7 +47,7 @@ const titles = {
   uploads: 'Uploads',
   library: 'Question library',
   students: 'Students',
-  insights: 'Insights',
+  //insights: 'Insights',
   payments: 'Earnings',
   settings: 'Workspace settings',
 };
@@ -345,7 +345,7 @@ export default function App() {
             <UploadPage go={go} notify={notify} version={version} />
           ) : page === 'library' ? (
             <QuestionLibrary go={go} notify={notify} exams={list} />
-          ) : page === 'students' || page === 'insights' ? (
+          ) : page === 'students'? (
             <Insights exams={list} go={go} version={version} studentView={page === 'students'} />
           ) : page === 'payments' ? (
             <Payments version={version} go={go} />
@@ -390,7 +390,7 @@ export default function App() {
           ))}
           <button
             className={
-              ['students', 'insights', 'payments', 'settings'].includes(page) ? 'active' : ''
+              ['students', 'payments', 'settings'].includes(page) ? 'active' : ''
             }
             aria-label="More pages"
             onClick={() => setMobile(true)}

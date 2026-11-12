@@ -497,57 +497,57 @@ export function createApp({ store, config, authenticate, providerFetch = fetch }
       res.json(store.view(store.getExam(updated.id)));
     }),
   );
-  app.get(
-    '/api/teacher/exams/:id/recommendations',
-    route(async (req, res) => {
-      const report = store.report(req.user.id, req.params.id),
-        weak = report.topics.filter((t) => t.accuracy !== null && t.accuracy < 65);
-      if (!weak.length) return res.json({ topics: [], items: [] });
-      const data = await upstream(req, '/api/library/bundles'),
-        items = data.bundles || data.materials || [];
-      const normalize = (value) =>
-        String(value)
-          .toLowerCase()
-          .replace(/[^a-z0-9 ]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-      const candidates = items
-        .filter((b) => {
-          const words = normalize(
-            [b.title, b.name, ...(b.libraryStats?.subjects || b.subjects || [])].join(' '),
-          );
-          return weak.some((t) => words.includes(normalize(t.subject)));
-        })
-        .slice(0, 6);
-      const suggestions = [];
-      for (const b of candidates) {
-        const bundle = await loadBundle(req, b.id);
-        const matches = weak
-          .map((t) => {
-            const needle = normalize(t.topic);
-            const hits = (bundle.questions || []).filter(
-              (q) =>
-                normalize(q.subject) === normalize(t.subject) &&
-                needle &&
-                needle !== 'unsectioned' &&
-                (normalize(q.topic || q.section).includes(needle) ||
-                  normalize(q.question).includes(needle)),
-            );
-            return { topic: t.topic, count: hits.length };
-          })
-          .filter((t) => t.count);
-        if (matches.length)
-          suggestions.push({
-            ...b,
-            matchedTopics: matches.map((t) => t.topic),
-            matchingQuestions: matches.reduce((n, t) => n + t.count, 0),
-            searchTopic: matches[0].topic,
-            relevance: matches.length,
-          });
-      }
-      res.json({ topics: weak, items: suggestions.sort((a, b) => b.relevance - a.relevance) });
-    }),
-  );
+  // app.get(
+  //   '/api/teacher/exams/:id/recommendations',
+  //   route(async (req, res) => {
+  //     const report = store.report(req.user.id, req.params.id),
+  //       weak = report.topics.filter((t) => t.accuracy !== null && t.accuracy < 65);
+  //     if (!weak.length) return res.json({ topics: [], items: [] });
+  //     const data = await upstream(req, '/api/library/bundles'),
+  //       items = data.bundles || data.materials || [];
+  //     const normalize = (value) =>
+  //       String(value)
+  //         .toLowerCase()
+  //         .replace(/[^a-z0-9 ]/g, ' ')
+  //         .replace(/\s+/g, ' ')
+  //         .trim();
+  //     const candidates = items
+  //       .filter((b) => {
+  //         const words = normalize(
+  //           [b.title, b.name, ...(b.libraryStats?.subjects || b.subjects || [])].join(' '),
+  //         );
+  //         return weak.some((t) => words.includes(normalize(t.subject)));
+  //       })
+  //       .slice(0, 6);
+  //     const suggestions = [];
+  //     for (const b of candidates) {
+  //       const bundle = await loadBundle(req, b.id);
+  //       const matches = weak
+  //         .map((t) => {
+  //           const needle = normalize(t.topic);
+  //           const hits = (bundle.questions || []).filter(
+  //             (q) =>
+  //               normalize(q.subject) === normalize(t.subject) &&
+  //               needle &&
+  //               needle !== 'unsectioned' &&
+  //               (normalize(q.topic || q.section).includes(needle) ||
+  //                 normalize(q.question).includes(needle)),
+  //           );
+  //           return { topic: t.topic, count: hits.length };
+  //         })
+  //         .filter((t) => t.count);
+  //       if (matches.length)
+  //         suggestions.push({
+  //           ...b,
+  //           matchedTopics: matches.map((t) => t.topic),
+  //           matchingQuestions: matches.reduce((n, t) => n + t.count, 0),
+  //           searchTopic: matches[0].topic,
+  //           relevance: matches.length,
+  //         });
+  //     }
+  //     res.json({ topics: weak, items: suggestions.sort((a, b) => b.relevance - a.relevance) });
+  //   }),
+  // );
   app.post(
     '/api/teacher/payments/connect',
     limit('bachs-connect', 5),

@@ -1,10 +1,10 @@
-import { StudentCards, QuestionCards } from './ResultCards';
+import { StudentCards} from './ResultCards';
 import { useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
-  BookOpen,
+  //BookOpen,
   Check,
   Clock3,
   Copy,
@@ -24,7 +24,7 @@ import {
   Empty,
   ErrorBox,
   Loading,
-  MiniBar,
+ // MiniBar,
   Modal,
   SourceContent,
   RichContent,
@@ -34,7 +34,7 @@ import {
   when,
 } from './components';
 import { exportCsv, mediaUrl } from './api';
-import { LibraryPicker } from './Library';
+//import { LibraryPicker } from './Library';
 export default function ExamDetail({ id, go, notify = () => {}, version = 0, embedded }) {
   const [tick, setTick] = useState(0),
     resource = useResource(`/teacher/exams/${id}`, version + tick),
@@ -45,8 +45,8 @@ export default function ExamDetail({ id, go, notify = () => {}, version = 0, emb
     [confirm, setConfirm] = useState(''),
     [student, setStudent] = useState(null),
     [attemptId, setAttemptId] = useState(null),
-    [preview, setPreview] = useState(false),
-    [library, setLibrary] = useState(null);
+    [preview, setPreview] = useState(false);
+    //[library, setLibrary] = useState(null);
   const exam = resource.data,
     report = analysis.data;
   async function act(action) {
@@ -173,8 +173,8 @@ export default function ExamDetail({ id, go, notify = () => {}, version = 0, emb
               ['overview', 'Overview'],
               ['questions', 'Questions'],
               ['students', 'Students & results'],
-              ['analysis', 'Topic insights'],
-              ['recommendations', 'What’s next'],
+              //['analysis', 'Topic insights'],
+              //['recommendations', 'What’s next'],
             ].map(([value, label]) => (
               <button
                 className={tab === value ? 'active' : ''}
@@ -403,26 +403,13 @@ export default function ExamDetail({ id, go, notify = () => {}, version = 0, emb
             </article>
           ))}
         </section>
-      ) : tab === 'students' ? (
+      ) : (
         analysis.loading ? (
           <Loading />
         ) : (
           report && <StudentTable report={report} onStudent={setStudent} />
         )
-      ) : tab === 'analysis' ? (
-        analysis.loading ? (
-          <Loading />
-        ) : (
-          report && (
-            <Analysis
-              report={report}
-              onPractice={() => (embedded ? setLibrary({}) : setTab('recommendations'))}
-            />
-          )
-        )
-      ) : (
-        <Recommendations id={id} onPractice={setLibrary} version={version + tick} />
-      )}
+      ) }
       {confirm && (
         <Modal
           title={
@@ -518,7 +505,7 @@ export default function ExamDetail({ id, go, notify = () => {}, version = 0, emb
         />
       )}{' '}
       {preview && <ExamPreview exam={exam} onClose={() => setPreview(false)} />}{' '}
-      {library && (
+      {/* {library && (
         <LibraryPicker
           initialBundleId={library.bundleId}
           initialTopic={library.topic || ''}
@@ -526,7 +513,7 @@ export default function ExamDetail({ id, go, notify = () => {}, version = 0, emb
           onImport={remediate}
           busy={busy}
         />
-      )}
+      )} */}
     </>
   );
 }
@@ -676,226 +663,226 @@ function StudentTable({ report, onStudent }) {
     </section>
   );
 }
-function Analysis({ report, onPractice }) {
-  return (
-    <>
-      <div className="stats-grid three">
-        <Stat label="Average score" value={percent(report.average)} foot="Fully graded attempts" />
-        <Stat
-          label="Average time"
-          value={
-            report.averageSeconds === null ? '—' : `${Math.round(report.averageSeconds / 60)} min`
-          }
-          foot="Completed attempts"
-        />
-        <Stat
-          label="Written grading"
-          value={report.pendingGrading}
-          foot="Attempts awaiting teacher marks"
-        />
-      </div>
-      {!report.attempts ? (
-        <Empty
-          title="No submitted attempts"
-          text="Topic and question analysis appears after students submit an attempt."
-        />
-      ) : (
-        <>
-          <div className="analysis-columns">
-            <section className="panel padded">
-              <div className="panel-heading">
-                <div>
-                  <span className="eyebrow">THE GAPS WORTH YOUR TIME</span>
-                  <h2>Topic performance</h2>
-                </div>
-                <button className="text-btn" onClick={onPractice}>
-                  Find practice <ArrowRight size={15} />
-                </button>
-              </div>
-              {report.topics.map((t, index) => (
-                <div className="topic-analysis" key={index}>
-                  <div>
-                    <strong>{t.topic}</strong>
-                    <small>
-                      {t.subject} · {t.students} students missed questions here
-                    </small>
-                  </div>
-                  <span>{percent(t.accuracy)}</span>
-                  <MiniBar value={t.accuracy} />
-                  <small>
-                    {t.correct} correct of {t.answered} graded responses · {t.unanswered} unanswered
-                    {t.pending ? ` · ${t.pending} awaiting marks` : ''}
-                  </small>
-                </div>
-              ))}
-            </section>
-            <section className="panel padded">
-              <span className="eyebrow">THE WHOLE PICTURE</span>
-              <h2>Score distribution</h2>
-              <p className="panel-copy">Each completed, fully graded attempt.</p>
-              <div className="distribution">
-                {report.distribution.map((b) => (
-                  <div key={b.label}>
-                    <strong>{b.count}</strong>
-                    <div>
-                      <i
-                        style={{
-                          height: `${b.count ? Math.max(4, (b.count / Math.max(...report.distribution.map((v) => v.count), 1)) * 100) : 0}%`,
-                        }}
-                      />
-                    </div>
-                    <small>{b.label}</small>
-                  </div>
-                ))}
-              </div>
-              <div className="analysis-note">
-                Use these results to choose topics for the next practice exam.
-              </div>
-            </section>
-          </div>
-          <section className="panel">
-            <div className="panel-heading">
-              <div>
-                <span className="eyebrow">LOOK A LITTLE CLOSER</span>
-                <h2>Question performance</h2>
-              </div>
-              <Button
-                icon={Download}
-                onClick={() =>
-                  exportCsv(
-                    report.questions.map(({ choices, ...q }) => ({
-                      ...q,
-                      optionSelections: choices.join('; '),
-                    })),
-                    'question-analysis',
-                  )
-                }
-              >
-                Export
-              </Button>
-            </div>
-            <QuestionCards rows={report.questions} />
-            <div className="table-scroll question-performance-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Question</th>
-                    <th>Topic</th>
-                    <th>Correct</th>
-                    <th>Unanswered</th>
-                    <th>Option selections</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.questions.map((q) => (
-                    <tr key={q.key}>
-                      <td>
-                        <span className="question-excerpt">{q.question}</span>
-                      </td>
-                      <td>{q.topic}</td>
-                      <td>
-                        <span className="score-inline">
-                          {percent(q.accuracy)}
-                          <MiniBar value={q.accuracy} />
-                        </span>
-                      </td>
-                      <td>
-                        {q.unanswered}/{q.seen}
-                      </td>
-                      <td>
-                        <span className="distractors">
-                          {q.choices.map((n, i) => (
-                            <span key={i}>
-                              {String.fromCharCode(65 + i)} <b>{n}</b>
-                            </span>
-                          ))}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </>
-      )}
-    </>
-  );
-}
-function Recommendations({ id, onPractice, version }) {
-  const resource = useResource(`/teacher/exams/${id}/recommendations`, version);
-  return (
-    <section className="panel padded">
-      <div className="panel-heading">
-        <div>
-          <span className="eyebrow">UNDERSTANDING INTO ACTION</span>
-          <h2>Recommended practice</h2>
-        </div>
-        <span className="accent-symbol">✳</span>
-      </div>
-      <p className="panel-copy">
-        Library matches are suggestions based on subjects and weak topics. Choose the individual
-        questions before creating a follow-up exam.
-      </p>
-      <ErrorBox error={resource.error} />
-      {resource.loading ? (
-        <Loading label="Finding relevant collections…" />
-      ) : (
-        <>
-          {resource.data?.topics.length > 0 && (
-            <div className="topic-tags">
-              {resource.data.topics.map((t, i) => (
-                <span key={i}>
-                  {t.topic} · {percent(t.accuracy)}
-                </span>
-              ))}
-            </div>
-          )}
-          {resource.data?.items.length ? (
-            <div className="recommendation-list">
-              {resource.data.items.map((b) => (
-                <article key={b.id}>
-                  <span className="exam-icon">
-                    <BookOpen size={24} />
-                  </span>
-                  <div className="grow">
-                    <h3>{b.title || b.name}</h3>
-                    <p>{b.matchedTopics.join(' · ')}</p>
-                    <small>
-                      {b.question_count || b.libraryStats?.questionCount || 0} questions in
-                      collection
-                    </small>
-                  </div>
-                  <Button
-                    onClick={() => onPractice({ bundleId: b.id, topic: b.searchTopic || '' })}
-                  >
-                    Choose questions <ArrowRight size={15} />
-                  </Button>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <Empty
-              title={
-                resource.data?.topics.length ? 'No matching collections' : 'No recommendations yet'
-              }
-              text={
-                resource.data?.topics.length
-                  ? 'There are no collection-level matches. Search individual questions in the library.'
-                  : 'Once graded responses reveal a topic gap, relevant library collections appear here.'
-              }
-              action={
-                <Button onClick={() => onPractice({})}>
-                  Explore the library <ArrowRight size={15} />
-                </Button>
-              }
-            />
-          )}
-        </>
-      )}
-    </section>
-  );
-}
+// function Analysis({ report, onPractice }) {
+//   return (
+//     <>
+//       <div className="stats-grid three">
+//         <Stat label="Average score" value={percent(report.average)} foot="Fully graded attempts" />
+//         <Stat
+//           label="Average time"
+//           value={
+//             report.averageSeconds === null ? '—' : `${Math.round(report.averageSeconds / 60)} min`
+//           }
+//           foot="Completed attempts"
+//         />
+//         <Stat
+//           label="Written grading"
+//           value={report.pendingGrading}
+//           foot="Attempts awaiting teacher marks"
+//         />
+//       </div>
+//       {!report.attempts ? (
+//         <Empty
+//           title="No submitted attempts"
+//           text="Topic and question analysis appears after students submit an attempt."
+//         />
+//       ) : (
+//         <>
+//           <div className="analysis-columns">
+//             <section className="panel padded">
+//               <div className="panel-heading">
+//                 <div>
+//                   <span className="eyebrow">THE GAPS WORTH YOUR TIME</span>
+//                   <h2>Topic performance</h2>
+//                 </div>
+//                 <button className="text-btn" onClick={onPractice}>
+//                   Find practice <ArrowRight size={15} />
+//                 </button>
+//               </div>
+//               {report.topics.map((t, index) => (
+//                 <div className="topic-analysis" key={index}>
+//                   <div>
+//                     <strong>{t.topic}</strong>
+//                     <small>
+//                       {t.subject} · {t.students} students missed questions here
+//                     </small>
+//                   </div>
+//                   <span>{percent(t.accuracy)}</span>
+//                   <MiniBar value={t.accuracy} />
+//                   <small>
+//                     {t.correct} correct of {t.answered} graded responses · {t.unanswered} unanswered
+//                     {t.pending ? ` · ${t.pending} awaiting marks` : ''}
+//                   </small>
+//                 </div>
+//               ))}
+//             </section>
+//             <section className="panel padded">
+//               <span className="eyebrow">THE WHOLE PICTURE</span>
+//               <h2>Score distribution</h2>
+//               <p className="panel-copy">Each completed, fully graded attempt.</p>
+//               <div className="distribution">
+//                 {report.distribution.map((b) => (
+//                   <div key={b.label}>
+//                     <strong>{b.count}</strong>
+//                     <div>
+//                       <i
+//                         style={{
+//                           height: `${b.count ? Math.max(4, (b.count / Math.max(...report.distribution.map((v) => v.count), 1)) * 100) : 0}%`,
+//                         }}
+//                       />
+//                     </div>
+//                     <small>{b.label}</small>
+//                   </div>
+//                 ))}
+//               </div>
+//               <div className="analysis-note">
+//                 Use these results to choose topics for the next practice exam.
+//               </div>
+//             </section>
+//           </div>
+//           <section className="panel">
+//             <div className="panel-heading">
+//               <div>
+//                 <span className="eyebrow">LOOK A LITTLE CLOSER</span>
+//                 <h2>Question performance</h2>
+//               </div>
+//               <Button
+//                 icon={Download}
+//                 onClick={() =>
+//                   exportCsv(
+//                     report.questions.map(({ choices, ...q }) => ({
+//                       ...q,
+//                       optionSelections: choices.join('; '),
+//                     })),
+//                     'question-analysis',
+//                   )
+//                 }
+//               >
+//                 Export
+//               </Button>
+//             </div>
+//             <QuestionCards rows={report.questions} />
+//             <div className="table-scroll question-performance-table">
+//               <table>
+//                 <thead>
+//                   <tr>
+//                     <th>Question</th>
+//                     <th>Topic</th>
+//                     <th>Correct</th>
+//                     <th>Unanswered</th>
+//                     <th>Option selections</th>
+//                   </tr>
+//                 </thead>
+//                 <tbody>
+//                   {report.questions.map((q) => (
+//                     <tr key={q.key}>
+//                       <td>
+//                         <span className="question-excerpt">{q.question}</span>
+//                       </td>
+//                       <td>{q.topic}</td>
+//                       <td>
+//                         <span className="score-inline">
+//                           {percent(q.accuracy)}
+//                           <MiniBar value={q.accuracy} />
+//                         </span>
+//                       </td>
+//                       <td>
+//                         {q.unanswered}/{q.seen}
+//                       </td>
+//                       <td>
+//                         <span className="distractors">
+//                           {q.choices.map((n, i) => (
+//                             <span key={i}>
+//                               {String.fromCharCode(65 + i)} <b>{n}</b>
+//                             </span>
+//                           ))}
+//                         </span>
+//                       </td>
+//                     </tr>
+//                   ))}
+//                 </tbody>
+//               </table>
+//             </div>
+//           </section>
+//         </>
+//       )}
+//     </>
+//   );
+// }
+// function Recommendations({ id, onPractice, version }) {
+//   const resource = useResource(`/teacher/exams/${id}/recommendations`, version);
+//   return (
+//     <section className="panel padded">
+//       <div className="panel-heading">
+//         <div>
+//           <span className="eyebrow">UNDERSTANDING INTO ACTION</span>
+//           <h2>Recommended practice</h2>
+//         </div>
+//         <span className="accent-symbol">✳</span>
+//       </div>
+//       <p className="panel-copy">
+//         Library matches are suggestions based on subjects and weak topics. Choose the individual
+//         questions before creating a follow-up exam.
+//       </p>
+//       <ErrorBox error={resource.error} />
+//       {resource.loading ? (
+//         <Loading label="Finding relevant collections…" />
+//       ) : (
+//         <>
+//           {resource.data?.topics.length > 0 && (
+//             <div className="topic-tags">
+//               {resource.data.topics.map((t, i) => (
+//                 <span key={i}>
+//                   {t.topic} · {percent(t.accuracy)}
+//                 </span>
+//               ))}
+//             </div>
+//           )}
+//           {resource.data?.items.length ? (
+//             <div className="recommendation-list">
+//               {resource.data.items.map((b) => (
+//                 <article key={b.id}>
+//                   <span className="exam-icon">
+//                     <BookOpen size={24} />
+//                   </span>
+//                   <div className="grow">
+//                     <h3>{b.title || b.name}</h3>
+//                     <p>{b.matchedTopics.join(' · ')}</p>
+//                     <small>
+//                       {b.question_count || b.libraryStats?.questionCount || 0} questions in
+//                       collection
+//                     </small>
+//                   </div>
+//                   <Button
+//                     onClick={() => onPractice({ bundleId: b.id, topic: b.searchTopic || '' })}
+//                   >
+//                     Choose questions <ArrowRight size={15} />
+//                   </Button>
+//                 </article>
+//               ))}
+//             </div>
+//           ) : (
+//             <Empty
+//               title={
+//                 resource.data?.topics.length ? 'No matching collections' : 'No recommendations yet'
+//               }
+//               text={
+//                 resource.data?.topics.length
+//                   ? 'There are no collection-level matches. Search individual questions in the library.'
+//                   : 'Once graded responses reveal a topic gap, relevant library collections appear here.'
+//               }
+//               action={
+//                 <Button onClick={() => onPractice({})}>
+//                   Explore the library <ArrowRight size={15} />
+//                 </Button>
+//               }
+//             />
+//           )}
+//         </>
+//       )}
+//     </section>
+//   );
+// }
 function AttemptInspector({ id, onClose, onSaved }) {
   const resource = useResource(`/teacher/attempts/${id}`),
     [scores, setScores] = useState({}),
