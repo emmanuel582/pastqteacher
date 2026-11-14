@@ -360,7 +360,7 @@ export default function App() {
         </main>
         <footer className="page-footer">
           <span>
-            PastQ for teachers <i /> Teacher workspace
+            Focalpoint <i /> Teacher workspace
           </span>
           <span></span>
         </footer>

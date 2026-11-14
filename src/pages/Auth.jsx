@@ -48,7 +48,7 @@ export default function Auth({ onDemo }) {
       <Brand />
       <div className="auth-layout">
         <section className="auth-intro">
-          <span className="eyebrow">PASTQ TEACHER WORKSPACE</span>
+          <span className="eyebrow">FOCALPOINT</span>
           <h1>
             Create exams.
             <br />
@@ -57,7 +57,7 @@ export default function Auth({ onDemo }) {
           <p>Upload question papers, run exam sessions, and review student results.</p>
         </section>
         <section className="auth-card">
-          <span className="eyebrow">PASTQ FOR TEACHERS</span>
+          <span className="eyebrow">FOCALPOINT</span>
           <h2>
             {sent
               ? 'Check your inbox.'
@@ -65,7 +65,7 @@ export default function Auth({ onDemo }) {
                 ? 'Create a teacher account'
                 : mode === 'reset'
                   ? 'Reset your password'
-                  : 'Sign in to PastQ Teacher'}
+                  : 'Sign in to Focalpoint'}
           </h2>
           <p>
             {sent
@@ -151,7 +151,7 @@ export default function Auth({ onDemo }) {
           <Button variant="outline" onClick={onDemo}>
             Explore a demo workspace <ArrowUpRight size={17} />
           </Button>
-          <small className="fine-print">A separate space for teachers. The PastQ you know.</small>
+          <small className="fine-print">A separate space for teachers. Focalpoint.</small>
         </section>
       </div>
     </div>

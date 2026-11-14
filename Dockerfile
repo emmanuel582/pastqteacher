@@ -10,12 +10,12 @@ RUN npm run build
 
 FROM node:22-bookworm-slim
 WORKDIR /app
-ENV NODE_ENV=production PORT=3002 TEACHER_DATA_DIR=/var/lib/pastq-teacher
+ENV NODE_ENV=production TEACHER_DATA_DIR=/var/lib/pastq-teacher
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && mkdir -p /var/lib/pastq-teacher && chown node:node /var/lib/pastq-teacher
 COPY --from=build /app/dist ./dist
 COPY server ./server
 COPY shared ./shared
 USER node
-EXPOSE 3002
+EXPOSE 3000
 CMD ["node", "server/index.js"]

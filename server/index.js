@@ -30,6 +30,7 @@ const config = {
     siblingAuth.VITE_SUPABASE_PUBLISHABLE_KEY,
   teacherIds: process.env.TEACHER_USER_IDS,
   staticDir: path.join(root, 'dist'),
+  trustProxy: process.env.NODE_ENV === 'production' ? 1 : false,
   bachs: {
     apiKey: process.env.BACHS_API_KEY,
     webhookSecret: process.env.BACHS_WEBHOOK_SECRET,
@@ -38,19 +39,21 @@ const config = {
 };
 if (!['sandbox', 'live'].includes(config.bachs.environment))
   throw new Error('BACHS_ENVIRONMENT must be sandbox or live.');
-if (process.env.NODE_ENV === 'production')
+if (process.env.NODE_ENV === 'production') {
   for (const origin of [config.teacherOrigin, config.studentOrigin])
     if (!origin.startsWith('https://'))
       throw new Error('Production frontend origins must use HTTPS.');
-const store = createStore(
-  config.dataDir,
-  process.env.TEACHER_STORAGE_SECRET ||
-    (process.env.NODE_ENV !== 'production' ? 'pastq-teacher-local-development-secret-only' : ''),
-);
-const server = createApp({ store, config }).listen(
-  Number(process.env.PORT || 3002),
-  process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1',
-  () => console.log(`PastQ Teacher API on http://127.0.0.1:${process.env.PORT || 3002}`),
+  if (!config.pastqApi.startsWith('https://'))
+    throw new Error('Production PASTQ_API_URL must use HTTPS.');
+}
+const storageSecret = process.env.TEACHER_STORAGE_SECRET || '';
+if (storageSecret.length < 32)
+  throw new Error('TEACHER_STORAGE_SECRET must contain at least 32 characters.');
+const store = createStore(config.dataDir, storageSecret);
+const port = Number(process.env.PORT || 3002);
+const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';
+const server = createApp({ store, config }).listen(port, host, () =>
+  console.log(`Focalpoint API on http://${host}:${port}`),
 );
 function stop() {
   server.close(() => {

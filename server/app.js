@@ -63,7 +63,17 @@ export function createApp({ store, config, authenticate, providerFetch = fetch }
       res.json(store.processPayment(event));
     }),
   );
-  app.use(express.json({ limit: '30mb' }));
+  app.use((req, res, next) => {
+    if (req.method === 'GET' || req.method === 'HEAD') return next();
+    const limit =
+      req.method === 'PUT' && /^\/api\/exams\/attempts\/[^/]+\/answers$/.test(req.path)
+        ? '4mb'
+        : (req.method === 'POST' && req.path === '/api/teacher/exams') ||
+            (req.method === 'PUT' && /^\/api\/teacher\/exams\/[^/]+$/.test(req.path))
+          ? '12mb'
+          : '1mb';
+    return express.json({ limit })(req, res, next);
+  });
   const supabase =
     !authenticate && config.supabaseUrl && config.supabaseKey
       ? createClient(config.supabaseUrl, config.supabaseKey, {
@@ -94,13 +104,26 @@ export function createApp({ store, config, authenticate, providerFetch = fetch }
     }
   }
   const teacher = (req, _res, next) => {
-    req.profile = store.profile(req.user.id);
-    if (!req.profile)
-      return next(
-        Object.assign(new Error('Activate your teacher workspace first.'), { status: 403 }),
-      );
-    next();
+    try {
+      assertInvited(req.user.id);
+      req.profile = store.profile(req.user.id);
+      if (!req.profile)
+        return next(
+          Object.assign(new Error('Activate your teacher workspace first.'), { status: 403 }),
+        );
+      next();
+    } catch (error) {
+      next(error);
+    }
   };
+  function assertInvited(userId) {
+    const allowed = String(config.teacherIds || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (allowed.length && !allowed.includes(userId))
+      fail('This account has not been invited as a teacher.', 403);
+  }
   app.get('/api/health', (_req, res) =>
     res.json({
       service: 'pastq-teacher',
@@ -125,11 +148,7 @@ export function createApp({ store, config, authenticate, providerFetch = fetch }
     auth,
     limit('profile', 20),
     route((req, res) => {
-      const allowed = String(config.teacherIds || '')
-        .split(',')
-        .filter(Boolean);
-      if (allowed.length && !allowed.includes(req.user.id))
-        fail('This account has not been invited as a teacher.', 403);
+      assertInvited(req.user.id);
       const old = store.profile(req.user.id) || {},
         name = String(req.body.name || '').trim(),
         organization = String(req.body.organization || '').trim(),
@@ -162,13 +181,19 @@ export function createApp({ store, config, authenticate, providerFetch = fetch }
       signal: AbortSignal.timeout(300000),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok)
-      fail(
-        typeof data.error === 'string'
-          ? data.error
-          : data.error?.message || 'PastQ could not process this request.',
+    if (!response.ok) {
+      console.error(
+        '[teacher:upstream]',
         response.status,
+        typeof data.error === 'string' ? data.error : data.error?.code || 'upstream_error',
       );
+      fail(
+        response.status === 401
+          ? 'Your session expired. Sign in again.'
+          : 'PastQ could not process this request.',
+        response.status === 401 ? 401 : 502,
+      );
+    }
     return data;
   }
   const json = (body) => ({
@@ -180,12 +205,13 @@ export function createApp({ store, config, authenticate, providerFetch = fetch }
   const libraryCache = new Map();
   async function loadBundle(req, id) {
     if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(id)) fail('Invalid collection.');
-    const cached = libraryCache.get(id);
+    const cacheKey = `${req.user.id}:${id}`;
+    const cached = libraryCache.get(cacheKey);
     if (cached && Date.now() - cached.at < 60000) return cached.bundle;
     const bundle = await upstream(req, `/api/library/bundles/${encodeURIComponent(id)}`);
-    libraryCache.delete(id);
-    if (libraryCache.size >= 2) libraryCache.delete(libraryCache.keys().next().value);
-    libraryCache.set(id, { at: Date.now(), bundle });
+    libraryCache.delete(cacheKey);
+    if (libraryCache.size >= 8) libraryCache.delete(libraryCache.keys().next().value);
+    libraryCache.set(cacheKey, { at: Date.now(), bundle });
     return bundle;
   }
   async function embedFigures(req, questions) {
@@ -622,7 +648,15 @@ export function createApp({ store, config, authenticate, providerFetch = fetch }
         return res.json({ joined: true, exam: store.publicExam(exam, req.user.id) });
       if (exam.priceMinor) {
         if (!bachs.configured) fail('Payments are currently unavailable.', 503);
-        const order = store.createOrder(exam, req.user);
+        if (store.paidOrder(exam.id, req.user.id)) {
+          store.enroll(exam.id, req.user, true);
+          return res.json({ joined: true, exam: store.publicExam(exam, req.user.id) });
+        }
+        const order = store.reserveOrder(exam, req.user);
+        if (order.url)
+          return res
+            .status(402)
+            .json({ paymentRequired: true, orderId: order.id, checkoutUrl: order.url });
         const checkout = await bachs.checkout(order, config.studentOrigin);
         store.checkout(order.id, checkout.id, checkout.url);
         return res
@@ -669,6 +703,8 @@ export function createApp({ store, config, authenticate, providerFetch = fetch }
     app.get('*', (_req, res) => res.sendFile(path.join(config.staticDir, 'index.html')));
   }
   app.use((error, _req, res, _next) => {
+    if (error.type === 'entity.too.large')
+      return res.status(413).json({ error: 'This request is too large.' });
     if (error instanceof multer.MulterError)
       return res.status(400).json({
         error:

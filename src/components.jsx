@@ -16,7 +16,7 @@ export const when = (value) =>
 export function Brand() {
   return (
     <span className="brand">
-      past<span>q</span>
+      Focal<span>point</span>
       <i /> <small>for teachers</small>
     </span>
   );

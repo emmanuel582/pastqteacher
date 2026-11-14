@@ -14,7 +14,7 @@ import {
   analytics,
   released,
 } from '../server/domain.js';
-import { verifyWebhook, createBachs } from '../server/bachs.js';
+import { verifyWebhook, createBachs, providerUrl } from '../server/bachs.js';
 const q = (key = 'moles') => ({
   key,
   type: 'mcq',
@@ -409,6 +409,78 @@ test('Bachs calls use decimal money, the documented connected-account header and
   assert.equal(calls[1].body.reference, 'order');
   assert.equal(calls[1].headers['Idempotency-Key'], 'order');
   assert.equal(calls[1].body.product_cart[0].quantity, 1);
+});
+test('question markup is reduced to the allowlist and figures must be embedded', () => {
+  const saved = validateExam(
+    draft({
+      questions: [
+        {
+          ...q(),
+          questionHtml:
+            '<p>Keep</p><script>alert(1)</script><img src="https://evil.test/x.png"><img src="pastq-asset:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">',
+          figures: [{ url: 'data:image/png;base64,aaaa' }],
+        },
+      ],
+    }),
+  );
+  assert.equal(saved.questions[0].questionHtml.includes('script'), false);
+  assert.equal(saved.questions[0].questionHtml.includes('evil.test'), false);
+  assert.match(saved.questions[0].questionHtml, /Keep/);
+  assert.match(saved.questions[0].questionHtml, /pastq-asset:a{64}/);
+  assert.throws(() =>
+    validateExam(
+      draft({
+        questions: [{ ...q('outside'), figures: [{ url: 'https://evil.test/a.png' }] }],
+      }),
+    ),
+  );
+});
+test('one student gets one pending checkout for an exam', (t) => {
+  const { store } = setup(t);
+  const exam = store.publish(
+    'teacher-a',
+    store.create('teacher-a', draft({ visibility: 'public', priceMinor: 50000 })).id,
+    { productId: 'prod_1', paymentAccount: 'acct_teacher' },
+  );
+  const live = store.getExam(exam.id);
+  const first = store.reserveOrder(live, user('s'));
+  store.checkout(first.id, 'chk_same', 'https://sandbox-checkout.bachs.io/c/same');
+  const second = store.reserveOrder(live, user('s'));
+  assert.equal(second.id, first.id);
+  assert.equal(second.url, 'https://sandbox-checkout.bachs.io/c/same');
+});
+test('a payment for a closed exam is recorded without granting entry', (t) => {
+  const { store } = setup(t);
+  const exam = store.publish(
+    'teacher-a',
+    store.create('teacher-a', draft({ visibility: 'public', priceMinor: 50000 })).id,
+    { productId: 'prod_1', paymentAccount: 'acct_teacher' },
+  );
+  store.changeStatus('teacher-a', exam.id, 'close');
+  const order = store.createOrder(store.getExam(exam.id), user('s'));
+  store.processPayment({
+    id: 'evt_closed',
+    type: 'collection.succeeded',
+    account: 'acct_teacher',
+    data: {
+      checkout_id: 'chk_closed',
+      reference: order.id,
+      amount: '500.00',
+      currency: 'NGN',
+      status: 'SUCCEEDED',
+    },
+  });
+  assert.equal(store.order(order.id).status, 'paid');
+  assert.equal(store.member(exam.id, 's'), null);
+});
+test('onboarding links must stay on a Bachs host', () => {
+  assert.equal(
+    providerUrl('https://connect.bachs.io/setup/c/acct_1/token', [
+      'https://connect.bachs.io',
+    ]),
+    'https://connect.bachs.io/setup/c/acct_1/token',
+  );
+  assert.throws(() => providerUrl('https://evil.test/phish', ['https://connect.bachs.io']));
 });
 test('HTTP auth cannot be bypassed; teachers see only their own exam data; student APIs hide answers', async (t) => {
   const { store, dir } = setup(t);

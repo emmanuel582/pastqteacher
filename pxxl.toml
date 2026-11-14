@@ -1,0 +1,36 @@
+# Focalpoint on Pxxl: one service serves the teacher app and the API.
+# A Dockerfile in this folder is what Pxxl builds.
+# In the dashboard, set the service port to 3000 so it matches the injected PORT.
+# Leave VITE_API_URL empty so the browser calls /api on this same host.
+# Put secrets in the Pxxl environment screen, not in this file.
+# Attach a persistent volume at /var/lib/pastq-teacher before the first real exam.
+
+version = 1
+
+name = "focalpoint"
+domainChoice = "pxxl.pro"
+port = 3000
+environment = "production"
+language = "javascript"
+framework = "express"
+packageManager = "npm"
+installCommand = "npm ci"
+buildCommand = "npm run build"
+startCommand = "npm start"
+entryFile = "server/index.js"
+
+[build]
+language = "javascript"
+runtime = "node"
+framework = "express"
+packageManager = "npm"
+installCommand = "npm ci"
+buildCommand = "npm run build"
+startCommand = "npm start"
+entryFile = "server/index.js"
+port = 3000
+nodeVersion = "22"
+
+[env]
+NODE_ENV = "production"
+TEACHER_DATA_DIR = "/var/lib/pastq-teacher"

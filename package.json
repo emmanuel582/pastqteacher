@@ -18,13 +18,13 @@
     "@supabase/supabase-js": "2.112.3",
     "cors": "2.8.5",
     "dotenv": "16.4.7",
-    "express": "4.21.2",
+    "express": "4.22.3",
     "katex": "0.16.22",
     "lucide-react": "0.487.0",
-    "multer": "2.2.0",
+    "multer": "2.5.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "sharp": "0.35.3"
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "4.7.0",

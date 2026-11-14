@@ -50,6 +50,51 @@ export function validateSettings(input = {}) {
   value.instructions = text(value.instructions, 5000, 'instructions');
   return Object.fromEntries(Object.keys(defaults()).map((key) => [key, value[key]]));
 }
+const allowedHtml = new Set(
+  'div span p br strong b em i u s sub sup hr table thead tbody tfoot tr td th caption ul ol li blockquote img math semantics mrow mfrac mn msup mi mo msub msqrt mroot mover munder munderover mtable mtr mtd mtext msubsup mspace menclose mfenced annotation'.split(
+    ' ',
+  ),
+);
+const blockedHtml = new Set(
+  'script style iframe object embed template svg link meta base form input button audio video'.split(
+    ' ',
+  ),
+);
+const embeddedImage = /^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=\s]+$/;
+function cleanAttributes(tag, attrs) {
+  if (tag === 'img') {
+    const source = /\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
+    const value = source?.[1] || source?.[2] || '';
+    if (/^pastq-asset:[a-f0-9]{64}$/.test(value) || embeddedImage.test(value))
+      return ` src="${value.replace(/[\s"]/g, '')}"`;
+    return '';
+  }
+  let clean = '';
+  for (const name of ['colspan', 'rowspan']) {
+    const match = new RegExp(`\\s${name}\\s*=\\s*"(\\d{1,3})"`, 'i').exec(attrs);
+    if (match) clean += ` ${name}="${match[1]}"`;
+  }
+  if (tag === 'annotation') clean += ' encoding="application/x-tex"';
+  return clean;
+}
+export function sanitizeHtml(value) {
+  let html = String(value).replace(/<!--[\s\S]*?-->/g, '');
+  for (const tag of blockedHtml) {
+    html = html.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?</${tag}>`, 'gi'), '');
+    html = html.replace(new RegExp(`</?${tag}\\b[^>]*>`, 'gi'), '');
+  }
+  return html
+    .replace(/<\/?([a-zA-Z0-9]+)([^>]*)>/g, (full, raw, attrs) => {
+      const tag = raw.toLowerCase();
+      if (!allowedHtml.has(tag)) return '';
+      if (full.startsWith('</')) return `</${tag}>`;
+      if (tag === 'br' || tag === 'hr') return `<${tag}>`;
+      const attributes = cleanAttributes(tag, attrs);
+      if (tag === 'img' && !attributes) return '';
+      return `<${tag}${attributes}>`;
+    })
+    .trim();
+}
 export function validateQuestions(input) {
   if (!Array.isArray(input) || input.length > 1000)
     fail('An exam can contain up to 1,000 questions.');
@@ -69,7 +114,6 @@ export function validateQuestions(input) {
     if (keys.has(key) || ['__proto__', 'constructor', 'prototype'].includes(key))
       fail('Each question must have a unique, valid identity.');
     keys.add(key);
-    // Rich source assets remain in the snapshot. The browser renderer sanitizes HTML.
     const result = {
       key,
       question,
@@ -83,18 +127,25 @@ export function validateQuestions(input) {
       marks: integer(raw.marks ?? 1, 1, 100, 'marks'),
     };
     for (const field of ['questionHtml', 'explanationHtml', 'answerHtml', 'passage'])
-      if (typeof raw[field] === 'string') result[field] = text(raw[field], 150000, field);
+      if (typeof raw[field] === 'string') {
+        const html = sanitizeHtml(raw[field]);
+        if (html) result[field] = text(html, 150000, field);
+      }
     if (Array.isArray(raw.optionsHtml) && raw.optionsHtml.length === options.length)
-      result.optionsHtml = raw.optionsHtml.map((html) => text(html, 150000, 'option formatting'));
+      result.optionsHtml = raw.optionsHtml.map((html) => text(sanitizeHtml(html), 150000, 'option formatting'));
     if (Array.isArray(raw.figures))
       result.figures = raw.figures
         .slice(0, 20)
         .filter((f) => f && typeof f.url === 'string')
-        .map((f) => ({
-          url: f.url.slice(0, 1500000),
-          caption: String(f.caption || '').slice(0, 500),
-          description: String(f.description || '').slice(0, 500),
-        }));
+        .map((f) => {
+          const url = f.url.slice(0, 1500000);
+          if (!embeddedImage.test(url)) fail('Question figures must be embedded images.');
+          return {
+            url,
+            caption: String(f.caption || '').slice(0, 500),
+            description: String(f.description || '').slice(0, 500),
+          };
+        });
     return result;
   });
 }

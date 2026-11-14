@@ -81,8 +81,11 @@
     font-size: 29px;
   }
   .mobile-brand .brand > i {
-    height: 19px;
-    margin: 0 9px 0 13px;
+    display: none;
+  }
+  .mobile-brand .brand > small {
+    flex-basis: 100%;
+    margin-top: 2px;
   }
   .mobile-brand .brand > small {
     font-size: 11px;

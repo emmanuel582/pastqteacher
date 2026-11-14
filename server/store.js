@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID, randomBytes, createHash, createCipheriv, createDecipheriv } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -14,13 +15,41 @@ import {
   visibleAssets,
 } from './domain.js';
 
+function protectData(directory, file) {
+  if (process.platform === 'win32') {
+    const user = process.env.USERNAME;
+    if (!user) return;
+    const account = process.env.USERDOMAIN ? `${process.env.USERDOMAIN}\\${user}` : user;
+    try {
+      execFileSync('icacls', [directory, '/inheritance:r', '/grant:r', `${account}:(OI)(CI)F`], {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+    } catch {
+      /* The database still opens if Windows refuses a tighter ACL. */
+    }
+    return;
+  }
+  try {
+    fs.chmodSync(directory, 0o700);
+    fs.chmodSync(file, 0o600);
+  } catch {
+    /* Permissions are best-effort when the filesystem does not support them. */
+  }
+}
+function minorUnits(amount) {
+  const match = /^(\d{1,12})(?:\.(\d{1,2}))?$/.exec(String(amount ?? '').trim());
+  if (!match) return null;
+  return Number(match[1]) * 100 + Number((match[2] || '').padEnd(2, '0'));
+}
+
 export function createStore(directory, secret) {
   if (!secret || secret.length < 32)
     throw new Error('TEACHER_STORAGE_SECRET must contain at least 32 characters.');
   fs.mkdirSync(directory, { recursive: true });
   const file = path.join(directory, 'teacher.db'),
     db = new DatabaseSync(file);
-  if (process.platform !== 'win32') fs.chmodSync(file, 0o600);
+  protectData(directory, file);
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;
     CREATE TABLE IF NOT EXISTS profiles(id TEXT PRIMARY KEY,data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS exams(id TEXT PRIMARY KEY,owner TEXT NOT NULL,visibility TEXT NOT NULL,status TEXT NOT NULL,code_hash TEXT UNIQUE,data TEXT NOT NULL);
@@ -293,14 +322,59 @@ export function createStore(directory, secret) {
       api.setAssets(owner, draft.id, source.assets || {});
       return view(getExam(draft.id));
     },
-    discover: (userId, search = '') =>
-      all("SELECT data FROM exams WHERE visibility='public' AND status='open'")
+    discover: (userId, search = '') => {
+      const needle = search.toLowerCase().slice(0, 150);
+      return db
+        .prepare(
+          `SELECT id, owner,
+            json_extract(data,'$.title') AS title,
+            json_extract(data,'$.description') AS description,
+            json_extract(data,'$.subject') AS subject,
+            json_extract(data,'$.logo') AS logo,
+            json_extract(data,'$.visibility') AS visibility,
+            json_extract(data,'$.status') AS status,
+            json_extract(data,'$.priceMinor') AS priceMinor,
+            json_extract(data,'$.currency') AS currency,
+            json_array_length(data,'$.questions') AS questionCount,
+            json_extract(data,'$.settings.durationMinutes') AS durationMinutes,
+            json_extract(data,'$.settings.startsAt') AS startsAt,
+            json_extract(data,'$.settings.endsAt') AS endsAt,
+            json_extract(data,'$.settings.maxAttempts') AS maxAttempts,
+            json_extract(data,'$.settings.instructions') AS instructions,
+            json_extract(data,'$.settings.passMark') AS passMark
+          FROM exams WHERE visibility='public' AND status='open'`,
+        )
+        .all()
         .filter(
           (e) =>
-            (!e.settings.endsAt || Date.parse(e.settings.endsAt) > Date.now()) &&
-            `${e.title} ${e.subject}`.toLowerCase().includes(search.toLowerCase().slice(0, 150)),
+            (!e.endsAt || Date.parse(e.endsAt) > Date.now()) &&
+            `${e.title || ''} ${e.subject || ''}`.toLowerCase().includes(needle),
         )
-        .map((e) => publicExam(e, userId)),
+        .map((e) => {
+          const p = api.profile(e.owner);
+          return {
+            id: e.id,
+            title: e.title,
+            description: e.description,
+            subject: e.subject,
+            logo: e.logo || p?.logo || null,
+            teacher: p?.name || 'Teacher',
+            organization: p?.organization || '',
+            visibility: e.visibility,
+            status: e.status,
+            priceMinor: e.priceMinor,
+            currency: e.currency,
+            questionCount: e.questionCount || 0,
+            durationMinutes: e.durationMinutes,
+            startsAt: e.startsAt,
+            endsAt: e.endsAt,
+            maxAttempts: e.maxAttempts,
+            instructions: e.instructions,
+            passMark: e.passMark,
+            joined: Boolean(userId && member(e.id, userId)),
+          };
+        });
+    },
     joined: (userId) =>
       all(
         'SELECT e.data FROM exams e JOIN members m ON m.exam_id=e.id WHERE m.user_id=? ORDER BY m.rowid DESC',
@@ -491,6 +565,17 @@ export function createStore(directory, secret) {
         JSON.stringify({ id: source.id, name: source.name, createdAt: new Date().toISOString() }),
       );
     },
+    reserveOrder(exam, user) {
+      return transaction(() => {
+        const row = db
+          .prepare(
+            "SELECT * FROM orders WHERE exam_id=? AND user_id=? AND status='pending' ORDER BY rowid DESC",
+          )
+          .get(exam.id, user.id);
+        if (row) return { ...parse(row), status: row.status };
+        return api.createOrder(exam, user);
+      });
+    },
     createOrder(exam, user) {
       const id = randomUUID(),
         order = {
@@ -523,37 +608,60 @@ export function createStore(directory, secret) {
       const row = db.prepare('SELECT * FROM orders WHERE id=?').get(id);
       return row ? { ...parse(row), status: row.status } : null;
     },
+    paidOrder(examId, userId) {
+      const row = db
+        .prepare(
+          "SELECT * FROM orders WHERE exam_id=? AND user_id=? AND status='paid' ORDER BY rowid DESC",
+        )
+        .get(examId, userId);
+      return row ? { ...parse(row), status: row.status } : null;
+    },
     processPayment(event) {
       return transaction(() => {
         if (db.prepare('SELECT 1 FROM webhook_events WHERE id=?').get(event.id))
           return { duplicate: true };
         const d = event.data || {};
         if (event.type === 'collection.succeeded') {
-          const row = db.prepare('SELECT * FROM orders WHERE checkout_id=?').get(d.checkout_id);
+          let row = d.checkout_id
+            ? db.prepare('SELECT * FROM orders WHERE checkout_id=?').get(d.checkout_id)
+            : null;
+          if (!row && d.reference)
+            row = db.prepare('SELECT * FROM orders WHERE id=?').get(d.reference);
           if (!row) fail('Checkout not registered yet; retry delivery.', 409);
           const order = parse(row);
+          const paidMinor = minorUnits(d.amount);
           if (
             (event.account || event.organization_id) !== order.account ||
             d.currency !== order.currency ||
-            Math.round(Number(d.amount) * 100) !== order.amount ||
+            paidMinor === null ||
+            paidMinor !== order.amount ||
             d.reference !== order.id ||
-            d.status !== 'SUCCEEDED'
+            d.status !== 'SUCCEEDED' ||
+            (row.checkout_id && d.checkout_id && row.checkout_id !== d.checkout_id)
           )
             fail('Payment does not match the exam order.', 400);
+          if (!row.checkout_id && d.checkout_id)
+            db.prepare('UPDATE orders SET checkout_id=? WHERE id=? AND checkout_id IS NULL').run(
+              d.checkout_id,
+              order.id,
+            );
           if (row.status !== 'paid') {
             const exam = getExam(order.examId);
-            const entry = {
-              userId: order.userId,
-              name: order.name || order.email.split('@')[0],
-              email: order.email,
-              joinedAt: new Date().toISOString(),
-              paid: true,
-            };
-            db.prepare('INSERT OR IGNORE INTO members VALUES(?,?,?)').run(
-              exam.id,
-              order.userId,
-              JSON.stringify(entry),
-            );
+            if (!exam) fail('Payment does not match the exam order.', 400);
+            if (exam.status === 'open') {
+              const entry = {
+                userId: order.userId,
+                name: order.name || order.email.split('@')[0],
+                email: order.email,
+                joinedAt: new Date().toISOString(),
+                paid: true,
+              };
+              db.prepare('INSERT OR IGNORE INTO members VALUES(?,?,?)').run(
+                exam.id,
+                order.userId,
+                JSON.stringify(entry),
+              );
+            }
             db.prepare("UPDATE orders SET status='paid' WHERE id=?").run(order.id);
           }
         }

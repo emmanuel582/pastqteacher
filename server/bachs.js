@@ -1,5 +1,18 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { fail } from './domain.js';
+const CHECKOUT_ORIGINS = ['https://checkout.bachs.io', 'https://sandbox-checkout.bachs.io'];
+const ONBOARDING_ORIGINS = ['https://connect.bachs.io', 'https://sandbox-connect.bachs.io'];
+export function providerUrl(value, allowed) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    fail('Bachs returned an invalid link.', 502);
+  }
+  if (url.username || url.password || url.protocol !== 'https:' || !allowed.includes(url.origin))
+    fail('Bachs returned an invalid link.', 502);
+  return url.href;
+}
 export function verifyWebhook(raw, headers, secret, now = Date.now()) {
   if (!secret) fail('Payment webhooks are not configured.', 503);
   const v2 = String(headers['x-bachs-signature-v2'] || '')
@@ -88,7 +101,7 @@ export function createBachs(config, request = fetch) {
       return { accountId };
     },
     async onboardingLink(accountId, teacherOrigin) {
-      return call(`/accounts/${encodeURIComponent(accountId)}/account-links`, {
+      const link = await call(`/accounts/${encodeURIComponent(accountId)}/account-links`, {
         method: 'POST',
         body: {
           type: 'onboarding',
@@ -96,6 +109,7 @@ export function createBachs(config, request = fetch) {
           refresh_url: `${teacherOrigin}/?payments=refresh#settings`,
         },
       });
+      return { url: providerUrl(link.url, ONBOARDING_ORIGINS) };
     },
     account: (id) => call(`/accounts/${encodeURIComponent(id)}`),
     async product(exam, account) {
@@ -132,10 +146,10 @@ export function createBachs(config, request = fetch) {
           cancel_url: `${studentOrigin}/?exam=${order.examId}&payment=cancelled`,
         },
       });
-      const url = new URL(checkout.checkout_url);
-      if (!['https://checkout.bachs.io', 'https://sandbox-checkout.bachs.io'].includes(url.origin))
-        fail('Bachs returned an invalid checkout URL.', 502);
-      return { id: checkout.checkout_id, url: url.href };
+      return {
+        id: checkout.checkout_id,
+        url: providerUrl(checkout.checkout_url, CHECKOUT_ORIGINS),
+      };
     },
   };
 }
