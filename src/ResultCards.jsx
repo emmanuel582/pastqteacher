@@ -1,5 +1,5 @@
 import { ArrowUpRight } from 'lucide-react';
-import { Badge, MiniBar, money, percent, when } from './components';
+import { Badge, money, percent, when } from './components';
 
 export function StudentCards({ rows, onStudent }) {
   return (
@@ -35,10 +35,10 @@ export function StudentCards({ rows, onStudent }) {
             </div>
           </div>
           {student.inProgress && <p className="student-card-topics">Attempt in progress</p>}
-          <p className="student-card-topics">
+          {/* <p className="student-card-topics">
             <strong>Topics to revisit: </strong>
             {student.weakTopics.length ? student.weakTopics.join(', ') : 'No graded gaps recorded.'}
-          </p>
+          </p> */}
           <button className="text-btn" onClick={() => onStudent(student)}>
             View answers & attempts
             <ArrowUpRight size={18} />
@@ -48,38 +48,38 @@ export function StudentCards({ rows, onStudent }) {
     </div>
   );
 }
-export function QuestionCards({ rows }) {
-  return (
-    <div className="question-performance-cards">
-      {rows.map((q, index) => (
-        <article className="question-performance-card" key={q.key}>
-          <div className="question-tags">
-            <strong>Q{q.number ?? index + 1}</strong>
-            <span>{q.topic}</span>
-          </div>
-          <p>{q.question}</p>
-          <div className="question-performance-result">
-            <span>
-              <strong>{percent(q.accuracy)}</strong> correct
-            </span>
-            <span>
-              {q.unanswered} of {q.seen} unanswered
-            </span>
-          </div>
-          <MiniBar value={q.accuracy} />
-          <div className="distractors">
-            {q.choices.map((count, index) => (
-              <span key={index}>
-                {String.fromCharCode(65 + index)}
-                <b>{count} chose</b>
-              </span>
-            ))}
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
+// export function QuestionCards({ rows }) {
+//   return (
+//     <div className="question-performance-cards">
+//       {rows.map((q, index) => (
+//         <article className="question-performance-card" key={q.key}>
+//           <div className="question-tags">
+//             <strong>Q{q.number ?? index + 1}</strong>
+//             <span>{q.topic}</span>
+//           </div>
+//           <p>{q.question}</p>
+//           <div className="question-performance-result">
+//             <span>
+//               <strong>{percent(q.accuracy)}</strong> correct
+//             </span>
+//             <span>
+//               {q.unanswered} of {q.seen} unanswered
+//             </span>
+//           </div>
+//           <MiniBar value={q.accuracy} />
+//           <div className="distractors">
+//             {q.choices.map((count, index) => (
+//               <span key={index}>
+//                 {String.fromCharCode(65 + index)}
+//                 <b>{count} chose</b>
+//               </span>
+//             ))}
+//           </div>
+//         </article>
+//       ))}
+//     </div>
+//   );
+// }
 export function PaymentCards({ rows }) {
   return (
     <div className="payment-cards">
