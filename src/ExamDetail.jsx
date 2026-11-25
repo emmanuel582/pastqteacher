@@ -454,23 +454,23 @@ export default function ExamDetail({ id, go, notify = () => {}, version = 0, emb
           <div className="student-summary">
             <Stat label="Completed attempts" value={student.attempts} />
             <Stat label="Best result" value={percent(student.best)} />
-            <Stat
+            {/* <Stat
               label="Improvement"
               value={
                 student.improvement === null
                   ? '—'
                   : `${student.improvement > 0 ? '+' : ''}${Math.round(student.improvement)} pts`
               }
-            />
+            /> */}
           </div>
-          <h3>Topics to revisit</h3>
-          <div className="topic-tags">
+          {/* <h3>Topics to revisit</h3> */}
+          {/* <div className="topic-tags">
             {student.weakTopics.length ? (
               student.weakTopics.map((t) => <span key={t}>{t}</span>)
             ) : (
               <span>No graded gaps yet</span>
             )}
-          </div>
+          </div> */}
           <h3>Attempt history</h3>
           {student.history.length ? (
             student.history.map((a, i) => (
@@ -525,8 +525,7 @@ function StudentTable({ report, onStudent }) {
       `${s.name} ${s.email}`.toLowerCase().includes(search.toLowerCase()) &&
       (filter === 'all' ||
         (filter === 'pending' && s.pending) ||
-        (filter === 'not-started' && !s.attempts) ||
-        (filter === 'support' && s.weakTopics.length)),
+        (filter === 'not-started' && !s.attempts))
   );
   return (
     <section className="panel">
@@ -585,7 +584,7 @@ function StudentTable({ report, onStudent }) {
           onChange={(e) => setFilter(e.target.value)}
         >
           <option value="all">All students</option>
-          <option value="support">Topics to revisit</option>
+          {/* <option value="support">Topics to revisit</option> */}
           <option value="pending">Needs grading</option>
           <option value="not-started">No completed attempt</option>
         </select>
@@ -601,7 +600,7 @@ function StudentTable({ report, onStudent }) {
                   <th>Attempts</th>
                   <th>Best score</th>
                   <th>Latest</th>
-                  <th>Topics to revisit</th>
+                  {/* <th>Topics to revisit</th> */}
                   <th />
                 </tr>
               </thead>
@@ -633,11 +632,11 @@ function StudentTable({ report, onStudent }) {
                     <td>
                       {s.pending ? <Badge status="draft">Needs grading</Badge> : percent(s.latest)}
                     </td>
-                    <td>
+                    {/* <td>
                       <span className="truncate-cell">
                         {s.weakTopics.slice(0, 2).join(', ') || '—'}
                       </span>
-                    </td>
+                    </td> */}
                     <td>
                       <button
                         className="icon-btn"
