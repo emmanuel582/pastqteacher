@@ -245,13 +245,13 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="sidebar-note">
+          {/* <div className="sidebar-note">
             <strong>Your question bank</strong>
             <p>Build focused practice from the PastQ library.</p>
             <button onClick={() => go('exams/new')}>
               Create an exam <ArrowUpRight size={15} />
             </button>
-          </div>
+          </div> */}
           <button
             className={`settings-link ${page === 'settings' ? 'selected' : ''}`}
             onClick={() => go('settings')}

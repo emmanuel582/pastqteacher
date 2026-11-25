@@ -7,8 +7,7 @@ import {
   Files,
   Users,
   Check,
-  ChartNoAxesCombined,
-  GraduationCap,
+  ChartNoAxesCombined
 } from 'lucide-react';
 import { request } from '../data';
 
@@ -188,9 +187,9 @@ export default function Overview({ exams, resource, profile, go, version }) {
                   </span>
                 </button>
               ))}
-              <button className="text-btn" onClick={() => go('insights')}>
+              {/* <button className="text-btn" onClick={() => go('insights')}>
                 See learning insights <ArrowRight size={15} />
-              </button>
+              </button> */}
             </>
           ) : (
             <Empty
@@ -201,7 +200,7 @@ export default function Overview({ exams, resource, profile, go, version }) {
           )}
         </section>
       </div>
-      <div className="bottom-note">
+      {/* <div className="bottom-note">
         <span className="note-icon">
           <GraduationCap size={20} />
         </span>
@@ -212,7 +211,7 @@ export default function Overview({ exams, resource, profile, go, version }) {
         <button className="text-btn" onClick={() => go('library')}>
           Find practice questions <ArrowRight size={16} />
         </button>
-      </div>
+      </div> */}
     </>
   );
 }
