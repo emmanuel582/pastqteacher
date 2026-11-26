@@ -1,14 +1,14 @@
 import { PaymentCards } from '../ResultCards';
 
-import { ArrowUpRight, Check, Download, Wallet } from 'lucide-react';
+import { ArrowUpRight, Check, Wallet } from 'lucide-react';
 import { useResource } from '../data';
-import { exportCsv } from '../api';
+// import { exportCsv } from '../api';
 import { Heading, Badge, Button, Empty, ErrorBox, Loading, Stat, money, when } from '../components';
 export default function Payments({ version, go }) {
   const data = useResource('/teacher/payments', version);
   if (data.loading) return <Loading />;
   const orders = data.data?.orders || [],
-    paid = orders.filter((o) => o.status === 'paid');
+    paid = orders.filter((o) => o.status === 'paid');   
   return (
     <>
       <Heading
@@ -63,7 +63,7 @@ export default function Payments({ version, go }) {
       <section className="panel">
         <div className="panel-heading">
           <h2>Exam payments</h2>
-          <Button
+          {/* <Button
             icon={Download}
             disabled={!orders.length}
             onClick={() =>
@@ -83,7 +83,7 @@ export default function Payments({ version, go }) {
             }
           >
             Export
-          </Button>
+          </Button> */}
         </div>
         {orders.length ? (
           <>
